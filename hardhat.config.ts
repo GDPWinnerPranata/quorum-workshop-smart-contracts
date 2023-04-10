@@ -160,7 +160,7 @@ task(
         participantTesseraPublicKey,
         extensionManagerAddress,
         participantNodeName,
-        vote === "true"
+        vote !== "false"
       )
   );
 
