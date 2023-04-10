@@ -2,21 +2,22 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 import Web3 from "web3";
 import Web3Quorum from "web3js-quorum";
-import { quorum, QuorumNode, QuorumNodes } from "./static/nodeData";
+import { getNode } from "./helper/node";
 
 const CHAIN_ID = 1337;
 const CONTRACT_NAME = "SimpleCounter";
+const NODE = getNode();
 
-function createWeb3Object(node: QuorumNode) {
-  return new Web3(node.getHttpUrl());
+function createWeb3Object() {
+  return new Web3(NODE.httpUrl);
 }
 
-function createWeb3QuorumObject(node: QuorumNode, web3?: Web3) {
+function createWeb3QuorumObject(web3?: Web3) {
   // -------- CREATE WEB3QUORUM OBJECT --------
   const web3Quorum = new Web3Quorum(
-    web3 ?? createWeb3Object(node),
+    web3 ?? createWeb3Object(),
     {
-      privateUrl: node.getPrivateUrl(),
+      privateUrl: NODE.privateUrl,
     },
     true
   );
@@ -88,23 +89,22 @@ function getContractJSON(contractName: string) {
   return contractJSON;
 }
 
-async function deployPrivateSimpleCounter(
-  deployer: QuorumNode,
-  deployTo: QuorumNode[]
+export async function deployPrivateSimpleCounter(
+  participantTesseraPublicKeys: string[]
 ) {
   // ++++++++ CREATE WEB3QUORUM OBJECT ++++++++
-  const web3Quorum = createWeb3QuorumObject(deployer);
+  const web3Quorum = createWeb3QuorumObject();
 
   // -------- DECRYPT SIGNING ACCOUNT --------
-  const accountKey = deployer.accountKeystore;
-  const accountPassword = deployer.accountPassword;
+  const accountKey = NODE.accountKeystore;
+  const accountPassword = NODE.accountPassword;
   const signingAccount = web3Quorum.eth.accounts.decrypt(
     accountKey,
     accountPassword
   );
 
   // -------- GET NONCE FROM TX COUNT --------
-  const accountAddress = deployer.accountAddress;
+  const accountAddress = NODE.accountAddress;
   const txCount = await web3Quorum.eth.getTransactionCount(accountAddress);
 
   // -------- GET CONTRACT BYTECODE --------
@@ -116,9 +116,8 @@ async function deployPrivateSimpleCounter(
     .slice(2);
 
   // ++++++++ INITIALIZE CONTRACT DEPLOYMENT TRANSACTION ++++++++
-  const fromAccountPrivateKey = deployer.accountPrivateKey;
-  const fromTesseraPublicKey = deployer.tesseraPublicKey;
-  const toParticipants = deployTo.map((node) => node.tesseraPublicKey);
+  const fromAccountPrivateKey = NODE.accountPrivateKey;
+  const fromTesseraPublicKey = NODE.tesseraPublicKey;
 
   const txOptions = {
     chainId: CHAIN_ID,
@@ -132,7 +131,7 @@ async function deployPrivateSimpleCounter(
     isPrivate: true, // ++++++++
     privateKey: fromAccountPrivateKey, // ++++++++
     privateFrom: fromTesseraPublicKey, // ++++++++
-    privateFor: toParticipants, // ++++++++
+    privateFor: participantTesseraPublicKeys, // ++++++++
   };
 
   // ++++++++ EXECUTE TRANSACTION ++++++++
@@ -140,41 +139,18 @@ async function deployPrivateSimpleCounter(
     txOptions
   );
   console.log(
-    `[${deployer.nodeName}]: *Deployed SimpleCounter Contract @ ${txReceipt.contractAddress}*`
+    `[${NODE.nodeName}]: *Deployed SimpleCounter Contract @ ${txReceipt.contractAddress}*`
   );
   return txReceipt;
 }
 
-async function getSimpleCounterValue(
-  node: QuorumNode,
-  contractAddress: string
-) {
-  // -------- CREATE WEB3 OBJECT --------
-  const web3Quorum = createWeb3QuorumObject(node);
-
-  // -------- GET CONTRACT INSTANCE --------
-  const { abi: contractABI } = getContractJSON(CONTRACT_NAME);
-  const contract = new web3Quorum.eth.Contract(contractABI, contractAddress);
-
-  // -------- CALL GET FUNCTION --------
-  try {
-    const result = await contract.methods.counter().call();
-
-    console.log(`[${node.nodeName}]: *Counter Value: ${result}*`);
-    return result;
-  } catch (e) {
-    console.log(`[${node.nodeName}]: *SimpleCounter Contract not found!*`);
-  }
-}
-
-async function addPrivateSimpleCounterValue(
-  initiator: QuorumNode,
-  initiateTo: QuorumNode[],
+export async function addPrivateSimpleCounterValue(
+  participantTesseraPublicKeys: string[],
   contractAddress: string,
   valueToAdd: number
 ) {
   // ++++++++ CREATE WEB3QUORUM OBJECT ++++++++
-  const web3Quorum = createWeb3QuorumObject(initiator);
+  const web3Quorum = createWeb3QuorumObject();
 
   // -------- GET CONTRACT INSTANCE --------
   const contractJSON = getContractJSON(CONTRACT_NAME);
@@ -182,81 +158,77 @@ async function addPrivateSimpleCounterValue(
   const contract = new web3Quorum.eth.Contract(contractABI, contractAddress);
 
   // ++++++++ INITIALIZE ADD TRANSACTION ++++++++
-  const accountAddress = initiator.accountAddress;
-  const toParticipants = initiateTo.map((node) => node.tesseraPublicKey);
+  const accountAddress = NODE.accountAddress;
 
   const txOptions = {
     from: accountAddress,
     gasPrice: 0x00,
     gasLimit: 0xffffff,
     isPrivate: true, // ++++++++
-    privateFor: toParticipants, // ++++++++
+    privateFor: participantTesseraPublicKeys, // ++++++++
   };
 
   // ++++++++ CALL ADD FUNCTION ++++++++
   const result = await contract.methods.addCounter(valueToAdd).send(txOptions);
 
   console.log(
-    `[${initiator.nodeName}]: *Called '.AddCounter(amount)' with amount: '${valueToAdd}'*`
+    `[${NODE.nodeName}]: *Called '.AddCounter(amount)' with amount: '${valueToAdd}'*`
   );
   return result;
 }
 
-async function timeoutForPropagation(timeout = 5000) {
-  console.log(`*Timeout for propagation: ${timeout}ms*`);
-  await new Promise((r) => setTimeout(r, timeout));
-}
-
-async function extendContract(
+export async function extendContract(
   contractAddress: string,
-  deployer: QuorumNode,
-  recipient: QuorumNode
+  participantTesseraPublicKey: string,
+  participantAccountAddress: string,
+  participantNodeName = "Participant Node"
 ) {
-  const web3Quorum = createWeb3QuorumObject(deployer);
+  const web3Quorum = createWeb3QuorumObject();
 
   const txOptions = {
-    from: deployer.accountAddress,
+    from: NODE.accountAddress,
     isPrivate: true,
-    privateKey: deployer.accountPrivateKey,
-    privateFrom: deployer.tesseraPublicKey,
-    privateFor: [recipient.tesseraPublicKey],
+    privateKey: NODE.accountPrivateKey,
+    privateFrom: NODE.tesseraPublicKey,
+    privateFor: [participantTesseraPublicKey],
   };
 
   const transactionHash = await web3Quorum.quorumExtension.extendContract(
     contractAddress,
-    recipient.tesseraPublicKey,
-    recipient.accountAddress,
+    participantTesseraPublicKey,
+    participantAccountAddress,
     txOptions
   );
 
   console.log(
-    `[${deployer.nodeName}]: *Extends contract '${contractAddress}' with: '${recipient.nodeName}'*`
+    `[${NODE.nodeName}]: *Extends contract '${contractAddress}' with: '${participantNodeName}'*`
   );
 
   return transactionHash;
 }
 
-async function getActiveExtensionContracts(node: QuorumNode) {
-  const web3Quorum = createWeb3QuorumObject(node);
+export async function getActiveExtensionContracts() {
+  const web3Quorum = createWeb3QuorumObject();
   const activeExtensionContracts =
     await web3Quorum.quorumExtension.activeExtensionContracts();
+  console.log(activeExtensionContracts);
   return activeExtensionContracts;
 }
 
-async function approveExtension(
-  deployer: QuorumNode,
-  recipient: QuorumNode,
+export async function approveExtension(
+  participantTesseraPublicKey: string,
   extensionManagerAddress: string,
+  participantNodeName = "Participant Node",
   vote = true
 ) {
-  const web3Quorum = createWeb3QuorumObject(recipient);
+  const web3Quorum = createWeb3QuorumObject();
 
   const txOptions = {
-    from: recipient.accountAddress,
+    from: NODE.accountAddress,
     isPrivate: true,
-    privateKey: recipient.accountPrivateKey,
-    privateFrom: recipient.tesseraPublicKey,
-    privateFor: [deployer.tesseraPublicKey],
+    privateKey: NODE.accountPrivateKey,
+    privateFrom: NODE.tesseraPublicKey,
+    privateFor: [participantTesseraPublicKey],
   };
 
   const result = await web3Quorum.quorumExtension.approveExtension(
@@ -266,29 +238,27 @@ async function approveExtension(
   );
 
   console.log(
-    `[${recipient.nodeName}]: *${
+    `[${NODE.nodeName}]: *${
       vote ? "Approved" : "Rejected"
-    } Contract extension in '${extensionManagerAddress}' by '${
-      deployer.nodeName
-    }'*`
+    } Contract extension in '${extensionManagerAddress}' by '${participantNodeName}'*`
   );
 
   return result;
 }
 
-async function cancelExtension(
-  deployer: QuorumNode,
-  recipient: QuorumNode,
-  extensionManagerAddress: string
+export async function cancelExtension(
+  participantTesseraPublicKey: string,
+  extensionManagerAddress: string,
+  participantNodeName = "Participant Node"
 ) {
-  const web3Quorum = createWeb3QuorumObject(deployer);
+  const web3Quorum = createWeb3QuorumObject();
 
   const txOptions = {
-    from: deployer.accountAddress,
+    from: NODE.accountAddress,
     isPrivate: true,
-    privateKey: deployer.accountPrivateKey,
-    privateFrom: deployer.tesseraPublicKey,
-    privateFor: [recipient.tesseraPublicKey],
+    privateKey: NODE.accountPrivateKey,
+    privateFrom: NODE.tesseraPublicKey,
+    privateFor: [participantTesseraPublicKey],
   };
 
   const result = await web3Quorum.quorumExtension.cancelExtension(
@@ -297,133 +267,8 @@ async function cancelExtension(
   );
 
   console.log(
-    `[${deployer.nodeName}]: *Cancelled Contract extension in '${extensionManagerAddress}' with '${recipient.nodeName}'*`
+    `[${NODE.nodeName}]: *Cancelled Contract extension in '${extensionManagerAddress}' with '${participantNodeName}'*`
   );
 
   return result;
 }
-
-async function run() {
-  // ======== CONTRACT DEPLOYMENT NODE 1, 2, & 3 ========
-  const { contractAddress } = await deployPrivateSimpleCounter(quorum.node1, [
-    quorum.node2,
-    quorum.node3,
-  ]);
-
-  // -------- TIMEOUT FOR TX PROPAGATION --------
-  await timeoutForPropagation();
-
-  // ======== CHECK COUNTER ========
-  await Object.keys(quorum).reduce(async (prev, curr) => {
-    await prev;
-    return getSimpleCounterValue(
-      quorum[curr as keyof QuorumNodes],
-      contractAddress!
-    );
-  }, Promise.resolve());
-
-  // ======== ADD COUNTER NODE 1 & 2 ========
-  await addPrivateSimpleCounterValue(
-    quorum.node1,
-    [quorum.node2],
-    contractAddress!,
-    53
-  );
-
-  // -------- TIMEOUT FOR TX PROPAGATION --------
-  await timeoutForPropagation();
-
-  // ======== CHECK COUNTER AFTER ADDING ========
-  await Object.keys(quorum).reduce(async (prev, curr) => {
-    await prev;
-    return getSimpleCounterValue(
-      quorum[curr as keyof QuorumNodes],
-      contractAddress!
-    );
-  }, Promise.resolve());
-
-  // ======== NODE 2 & 3 ADD COUNTER ========
-  await addPrivateSimpleCounterValue(
-    quorum.node2,
-    [quorum.node3],
-    contractAddress!,
-    70
-  );
-
-  // -------- TIMEOUT FOR TX PROPAGATION --------
-  await timeoutForPropagation();
-
-  // ======== CHECK COUNTER AFTER ADDING ========
-  await Object.keys(quorum).reduce(async (prev, curr) => {
-    await prev;
-    return getSimpleCounterValue(
-      quorum[curr as keyof QuorumNodes],
-      contractAddress!
-    );
-  }, Promise.resolve());
-
-  // ======== NODE 3 EXTENDS CONTRACT TO NODE 4 ========
-  await extendContract(contractAddress, quorum.node3, quorum.node4);
-
-  // -------- TIMEOUT FOR TX PROPAGATION --------
-  await timeoutForPropagation();
-
-  // ======== GET ACTIVE EXTENSION CONTRACTS ========
-  const activeExtensionContracts = await getActiveExtensionContracts(
-    quorum.node3
-  );
-  console.log(activeExtensionContracts);
-
-  // ======== NODE 4 ACCEPT CONTRACT EXTENSION FROM NODE 3 ========
-  const extendedContract = activeExtensionContracts[0];
-  await approveExtension(
-    quorum.node3,
-    quorum.node4,
-    extendedContract.managementContractAddress
-  );
-
-  // -------- TIMEOUT FOR TX PROPAGATION --------
-  await timeoutForPropagation(10000);
-
-  // ======== GET ACTIVE EXTENSION CONTRACTS ========
-  console.log(await getActiveExtensionContracts(quorum.node3));
-
-  // ======== CHECK COUNTER AFTER CONTRACT EXTENSION ========
-  await Object.keys(quorum).reduce(async (prev, curr) => {
-    await prev;
-    return getSimpleCounterValue(
-      quorum[curr as keyof QuorumNodes],
-      contractAddress!
-    );
-  }, Promise.resolve());
-
-  // ======== NODE 2 & 4 ADD COUNTER ========
-  await addPrivateSimpleCounterValue(
-    quorum.node2,
-    [quorum.node4],
-    contractAddress!,
-    123
-  );
-
-  // -------- TIMEOUT FOR TX PROPAGATION --------
-  await timeoutForPropagation();
-
-  // ======== CHECK COUNTER AFTER ADDING ========
-  await Object.keys(quorum).reduce(async (prev, curr) => {
-    await prev;
-    return getSimpleCounterValue(
-      quorum[curr as keyof QuorumNodes],
-      contractAddress!
-    );
-  }, Promise.resolve());
-
-  // ======== CANCEL ALL CONTRACT EXTENSION ========
-  // activeExtensionContracts
-  //   .map(({ managementContractAddress }: any) => managementContractAddress)
-  //   .reduce(async (prev: Promise<any>, curr: string) => {
-  //     await prev;
-  //     return cancelExtension(quorum.node1, quorum.node4, curr);
-  //   }, Promise.resolve());
-}
-
-run();

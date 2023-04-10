@@ -1,13 +1,14 @@
-import { Contract } from "ethers";
-import { ethers } from "hardhat";
+import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { getNode } from "./helper/node";
 
 const CONTRACT_NAME = "SimpleCounter";
 const NODE = getNode();
 
-async function deploySimpleCounter() {
+export async function deploySimpleCounter(hre: HardhatRuntimeEnvironment) {
   // -------- CREATE CONTRACT FACTORY OBJECT --------
-  const simpleCounterFactory = await ethers.getContractFactory(CONTRACT_NAME);
+  const simpleCounterFactory = await hre.ethers.getContractFactory(
+    CONTRACT_NAME
+  );
 
   // -------- DEPLOY CONTRACT FROM CONTRACT FACTORY WITH PARAMETER 47 --------
   const simpleCounter = await simpleCounterFactory.deploy(47);
@@ -18,15 +19,42 @@ async function deploySimpleCounter() {
   return simpleCounter;
 }
 
-async function getSimpleCounterValue(contract: Contract) {
-  // -------- CALL GET FUNCTION --------
-  const result = await contract.counter();
+export async function getSimpleCounterValue(
+  hre: HardhatRuntimeEnvironment,
+  contractAddress: string
+) {
+  // -------- CREATE CONTRACT FACTORY OBJECT --------
+  const simpleCounterFactory = await hre.ethers.getContractFactory(
+    CONTRACT_NAME
+  );
 
-  console.log(`[${NODE.nodeName}]: *Counter Value: ${result}*`);
-  return result;
+  //   -------- ATTACH TO CONTRACT BY ADDRESS --------
+  const contract = simpleCounterFactory.attach(contractAddress);
+
+  // -------- CALL GET FUNCTION --------
+  try {
+    const result = await contract.counter();
+
+    console.log(`[${NODE.nodeName}]: *Counter Value: ${result}*`);
+    return result;
+  } catch (e) {
+    console.log(`[${NODE.nodeName}]: *SimpleCounter Contract not found!*`);
+  }
 }
 
-async function addSimpleCounterValue(contract: Contract, valueToAdd: number) {
+export async function addSimpleCounterValue(
+  hre: HardhatRuntimeEnvironment,
+  contractAddress: string,
+  valueToAdd: number
+) {
+  // -------- CREATE CONTRACT FACTORY OBJECT --------
+  const simpleCounterFactory = await hre.ethers.getContractFactory(
+    CONTRACT_NAME
+  );
+
+  //   -------- ATTACH TO CONTRACT BY ADDRESS --------
+  const contract = simpleCounterFactory.attach(contractAddress);
+
   // ------- INITIALIZE ADD TRANSACTION ---------
   const result = await contract.addCounter(valueToAdd);
 
@@ -41,25 +69,23 @@ async function timeoutForPropagation(timeout = 5000) {
   await new Promise((r) => setTimeout(r, timeout));
 }
 
-async function run() {
+export async function simulate(hre: HardhatRuntimeEnvironment) {
   // ======== CONTRACT DEPLOYMENT ========
-  const simpelCounter = await deploySimpleCounter();
+  const simpleCounter = await deploySimpleCounter(hre);
 
   // -------- TIMEOUT FOR TX PROPAGATION --------
   await timeoutForPropagation();
 
   // ======== CHECK COUNTER ========.
-  getSimpleCounterValue(simpelCounter);
+  getSimpleCounterValue(hre, simpleCounter.address);
 
   // ======== ADD COUNTER ========
   const valueToAdd = 53;
-  await addSimpleCounterValue(simpelCounter, valueToAdd);
+  await addSimpleCounterValue(hre, simpleCounter.address, valueToAdd);
 
   // -------- TIMEOUT FOR TX PROPAGATION --------
   await timeoutForPropagation();
 
   // ======== CHECK COUNTER AFTER ADDING ========
-  getSimpleCounterValue(simpelCounter);
+  getSimpleCounterValue(hre, simpleCounter.address);
 }
-
-run();

@@ -26,7 +26,7 @@ function getContractJSON(contractName: string) {
   return contractJSON;
 }
 
-async function deploySimpleCounter() {
+export async function deploySimpleCounter() {
   // -------- CREATE WEB3 OBJECT --------
   const web3 = createWeb3Object();
 
@@ -76,7 +76,7 @@ async function deploySimpleCounter() {
   return txReceipt;
 }
 
-async function getSimpleCounterValue(contractAddress: string) {
+export async function getSimpleCounterValue(contractAddress: string) {
   // -------- CREATE WEB3 OBJECT --------
   const web3 = createWeb3Object();
 
@@ -85,13 +85,17 @@ async function getSimpleCounterValue(contractAddress: string) {
   const contract = new web3.eth.Contract(contractABI, contractAddress);
 
   // -------- CALL GET FUNCTION --------
-  const result = await contract.methods.counter().call();
+  try {
+    const result = await contract.methods.counter().call();
 
-  console.log(`[${NODE.nodeName}]: *Counter Value: ${result}*`);
-  return result;
+    console.log(`[${NODE.nodeName}]: *Counter Value: ${result}*`);
+    return result;
+  } catch (e) {
+    console.log(`[${NODE.nodeName}]: *SimpleCounter Contract not found!*`);
+  }
 }
 
-async function addSimpleCounterValue(
+export async function addSimpleCounterValue(
   contractAddress: string,
   valueToAdd: number
 ) {
@@ -126,7 +130,7 @@ async function timeoutForPropagation(timeout = 5000) {
   await new Promise((r) => setTimeout(r, timeout));
 }
 
-async function run() {
+export async function simulate() {
   // ======== CONTRACT DEPLOYMENT ========
   const { contractAddress } = await deploySimpleCounter();
 
@@ -146,5 +150,3 @@ async function run() {
   // ======== CHECK COUNTER AFTER ADDING ========
   getSimpleCounterValue(contractAddress!);
 }
-
-run();

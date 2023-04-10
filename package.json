@@ -16,9 +16,19 @@
   },
   "scripts": {
     "super-clean": "rm -rf artifacts cache node_modules .env",
-    "public-tx-web3": "npx hardhat run src/scripts/public-tx-web3.ts",
-    "public-tx-ethers": "npx hardhat run src/scripts/public-tx-ethers.ts",
-    "private-tx-web3quorum": "npx hardhat run src/scripts/private-tx-web3quorum.ts",
-    "read-counter": "npx hardhat readCounter"
+    "public-simulate-web3": "npx hardhat simulatePublicWeb3",
+    "public-simulate-ethers": "npx hardhat simulatePublicEthers",
+    "public-deploy-contract-web3": "npx hardhat deploySimpleCounterPublicWeb3",
+    "public-deploy-contract-ethers": "npx hardhat deploySimpleCounterPublicEthers",
+    "public-get-counter-web3": "npx hardhat getSimpleCounterValuePublicWeb3",
+    "public-get-counter-ethers": "npx hardhat getSimpleCounterValuePublicEthers",
+    "public-add-counter-web3": "npx hardhat addSimpleCounterValuePublicWeb3",
+    "public-add-counter-ethers": "npx hardhat addSimpleCounterValuePublicEthers",
+    "private-deploy-contract-web3quorum": "npx hardhat deploySimpleCounterPrivateWeb3Quorum",
+    "private-add-counter-web3quorum": "npx hardhat addSimpleCounterValuePrivateWeb3Quorum",
+    "private-extend-contract-web3quorum": "npx hardhat extendContractPrivateWeb3Quorum",
+    "private-get-active-extension-web3quorum": "npx hardhat getActiveExtensionContractsPrivateWeb3Quorum",
+    "private-approve-extension-web3quorum": "npx hardhat approveExtensionPrivateWeb3Quorum",
+    "private-cancel-extension-web3quorum": "npx hardhat cancelExtensionPrivateWeb3Quorum"
   }
 }
