@@ -18,6 +18,7 @@
     "super-clean": "rm -rf artifacts cache node_modules .env",
     "public-tx-web3": "npx hardhat run src/scripts/public-tx-web3.ts",
     "public-tx-ethers": "npx hardhat run src/scripts/public-tx-ethers.ts",
-    "private-tx-web3quorum": "npx hardhat run src/scripts/private-tx-web3quorum.ts"
+    "private-tx-web3quorum": "npx hardhat run src/scripts/private-tx-web3quorum.ts",
+    "read-counter": "npx hardhat readCounter"
   }
 }

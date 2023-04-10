@@ -35,3 +35,9 @@ To run private transaction demo with web3quorum
 ```
 npm run private-tx-web3quorum
 ```
+
+To read the counter value of a specific contract
+
+```
+npm run read-counter -- {contract address}
+```
