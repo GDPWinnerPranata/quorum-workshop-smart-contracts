@@ -77,7 +77,7 @@ npm run private-get-active-extension-web3quorum
 ```
 
 ```
-npm run private-approve-extension-web3quorum -- <participant tessera public key> <extension manager address> [participant node name] [vote]
+npm run private-approve-extension-web3quorum -- <participant tessera public key> <extension manager address> <vote> [participant node name]
 ```
 
 ```

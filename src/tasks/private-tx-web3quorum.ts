@@ -69,8 +69,8 @@ task(
 )
   .addPositionalParam("participantTesseraPublicKey")
   .addPositionalParam("extensionManagerAddress")
-  .addOptionalPositionalParam("participantNodeName")
   .addOptionalPositionalParam("vote")
+  .addOptionalPositionalParam("participantNodeName")
   .setAction(
     async ({
       participantTesseraPublicKey,
