@@ -29,9 +29,9 @@ task(
   .setAction(
     async ({ contractAddress, valueToAdd, participantTesseraPublicKeys }) =>
       await addPrivateSimpleCounterValue(
+        participantTesseraPublicKeys,
         contractAddress,
-        valueToAdd,
-        participantTesseraPublicKeys
+        valueToAdd
       )
   );
 
