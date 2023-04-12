@@ -45,11 +45,11 @@ npm run private-deploy-contract-web3quorum -- <...participant tessera public key
 ### Getting Counter Value
 
 ```
-npm run public-get-counter-web3
+npm run public-get-counter-web3 -- <contract address>
 ```
 
 ```
-npm run public-get-counter-ethers
+npm run public-get-counter-ethers -- <contract address>
 ```
 
 ### Adding Counter Value
